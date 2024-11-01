@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import json
 import openai
 from collections import deque
+import re  
 
 # open ai key for table formating
 openai.api_key = 'your_openai_api_key'
@@ -16,12 +17,35 @@ url_queue = deque(['/help'])  # start URL
 # avoid duplicate processing
 url_scraped = set()  
 
+    
+# remove emojis in text
+emoji_pattern = re.compile(  
+    "["  
+    "\U0001F600-\U0001F64F"  # emoticons  
+    "\U0001F300-\U0001F5FF"  # symbols & pictographs  
+    "\U0001F680-\U0001F6FF"  # transport & map symbols  
+    "\U0001F700-\U0001F77F"  # alchemical symbols  
+    "\U0001F780-\U0001F7FF"  # geometric shapes  
+    "\U0001F800-\U0001F8FF"  # supplemental arrows  
+    "\U0001F900-\U0001F9FF"  # supplemental symbols and pictographs  
+    "\U0001FA00-\U0001FA6F"  # chess symbols  
+    "\U0001FA70-\U0001FAFF"  # symbols and pictographs extended  
+    "\U00002600-\U000026FF"  # miscellaneous symbols  
+    "\U00002700-\U000027BF"  # dingbats  
+    "]+",  
+    re.UNICODE  
+)
+  
+def remove_emojis(text):  
+    # 使用正则表达式替换匹配到的表情符号为空字符串  
+    return emoji_pattern.sub("", text)  
+
 # fetch content of url
 def fetch_page(url):
     response = requests.get(url)
     return response.text
 
-# get all links that start with /help/ in a page ，link that has been processed will be skiped
+# get all links that start with /help/ in a page
 def parse_content(page_html):
     soup = BeautifulSoup(page_html, 'html.parser')
     links = []
@@ -42,6 +66,7 @@ def split_into_chunks(soup, max_chunk_size=750):
     list_level = 0
 
     def add_to_chunk(text):
+        text = remove_emojis(text)
         nonlocal current_chunk
         if len(current_chunk) + len(text) <= max_chunk_size: 
             current_chunk += "\n" + text
@@ -127,7 +152,6 @@ def scrape_url(link):
     page_html = fetch_page(url)
     main_html,page_links = parse_content(page_html)
 
-    print(page_links)
     for link in page_links:
         if link not in url_scraped:
             url_queue.append(link)
